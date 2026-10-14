@@ -1,6 +1,17 @@
 #include "../main.h"
 #include <sys/mman.h>
 
+// cacheflush() only exists on 32-bit ARM Android; use the compiler
+// builtin everywhere else (it is a no-op on cache-coherent arches).
+static void FlushICache(uintptr_t begin, uintptr_t end)
+{
+#if defined(__arm__)
+	cacheflush(begin, end, 0);
+#else
+	__builtin___clear_cache((char*)begin, (char*)end);
+#endif
+}
+
 #define HOOK_PROC "\x01\xB4\x01\xB4\x01\x48\x01\x90\x01\xBD\x00\xBF\x00\x00\x00\x00"
 
 uintptr_t mmap_start 	= 0;
@@ -23,14 +34,14 @@ void NOP(uintptr_t addr, unsigned int count)
         *(char*)(ptr+1) = 0x46;
     }
 
-    cacheflush(addr, (uintptr_t)(addr + count*2), 0);
+    FlushICache(addr, (uintptr_t)(addr + count*2));
 }
 
 void WriteMemory(uintptr_t dest, uintptr_t src, size_t size)
 {
 	UnFuck(dest);
 	memcpy((void*)dest, (void*)src, size);
-	cacheflush(dest, dest+size, 0);
+	FlushICache(dest, dest+size);
 }
 
 void ReadMemory(uintptr_t dest, uintptr_t src, size_t size)

@@ -15,6 +15,7 @@
 #include "keyboard.h"
 #include "settings.h"
 #include "debug.h"
+#include "serverbrowser.h"
 
 #include "util/armhook.h"
 #include "checkfilehash.h"
@@ -38,6 +39,8 @@ CGUI *pGUI = nullptr;
 CKeyBoard *pKeyBoard = nullptr;
 CDebug *pDebug = nullptr;
 CSettings *pSettings = nullptr;
+CServerBrowser *pServerBrowser = nullptr;
+bool g_bConnectRequested = false;
 
 void InitHookStuff();
 void InstallSpecialHooks();
@@ -62,6 +65,22 @@ void InitSAMP()
 	}
 }
 
+void ConnectToServer(const char* szHost, int iPort)
+{
+	if(!pSettings || !szHost || !szHost[0]) return;
+	strncpy(pSettings->Get().szHost, szHost, MAX_SETTINGS_STRING);
+	pSettings->Get().szHost[MAX_SETTINGS_STRING] = '\0';
+	if(iPort > 0 && iPort < 65536)
+		pSettings->Get().iPort = iPort;
+	if(pServerBrowser)
+	{
+		pServerBrowser->AddToHistory(szHost, pSettings->Get().iPort);
+		pServerBrowser->Close();
+	}
+	g_bConnectRequested = true;
+	Log("Server browser: connect requested -> %s:%d", pSettings->Get().szHost, pSettings->Get().iPort);
+}
+
 void InitInMenu()
 {
 	pGame = new CGame();
@@ -76,6 +95,7 @@ void InitInMenu()
 	pSpawnScreen = new CSpawnScreen();
 	pPlayerTags = new CPlayerTags();
 	pDialogWindow = new CDialogWindow();
+	pServerBrowser = new CServerBrowser();
 }
 
 void InitInGame()
@@ -98,14 +118,19 @@ void InitInGame()
 		return;
 	}
 
-	// ИСПРАВЛЕНО: Сеть запустится, если в файле настроек указан IP хоста
-	if(!bNetworkInited && (pSettings->Get().bOnline || pSettings->Get().szHost[0]))
+	// Server browser mode: wait for the user to pick a server instead of
+	// auto-connecting. Legacy behavior (auto-connect from settings.ini)
+	// is kept when [client] browser=0.
+	bool bWantConnect = g_bConnectRequested ||
+		(!pSettings->Get().bServerBrowser &&
+		 (pSettings->Get().bOnline || pSettings->Get().szHost[0]));
+	if(!bNetworkInited && bWantConnect)
 	{
 		Log("Connecting to %s:%d as %s", pSettings->Get().szHost, pSettings->Get().iPort, pSettings->Get().szNickName);
-		
-		pNetGame = new CNetGame( 
-			pSettings->Get().szHost,       
-			pSettings->Get().iPort,        
+
+		pNetGame = new CNetGame(
+			pSettings->Get().szHost,
+			pSettings->Get().iPort,
 			pSettings->Get().szNickName,
 			pSettings->Get().szPassword);
 		bNetworkInited = true;
@@ -123,38 +148,57 @@ void MainLoop()
 
 void handler(int signum, siginfo_t *info, void* contextPtr)
 {
-	ucontext* context = (ucontext_t*)contextPtr;
+	ucontext_t* context = (ucontext_t*)contextPtr;
 
 	if(info->si_signo == SIGSEGV)
 	{
-		Log("SIGSEGV | Fault address: 0x%X", info->si_addr);
-		Log("libGTASA base address: 0x%X", g_libGTASA);
+		Log("SIGSEGV | Fault address: %p", info->si_addr);
+		Log("libGTASA base address: %p", (void*)g_libGTASA);
 		Log("register states:");
 
-		Log("r0: 0x%X, r1: 0x%X, r2: 0x%X, r3: 0x%X", 
-			context->uc_mcontext.arm_r0, 
-			context->uc_mcontext.arm_r1, 
-			context->uc_mcontext.arm_r2,
-			context->uc_mcontext.arm_r3);
-		Log("r4: 0x%x, r5: 0x%x, r6: 0x%x, r7: 0x%x",
-			context->uc_mcontext.arm_r4,
-			context->uc_mcontext.arm_r5,
-			context->uc_mcontext.arm_r6,
-			context->uc_mcontext.arm_r7);
-		Log("r8: 0x%x, r9: 0x%x, sl: 0x%x, fp: 0x%x",
-			context->uc_mcontext.arm_r8,
-			context->uc_mcontext.arm_r9,
-			context->uc_mcontext.arm_r10,
-			context->uc_mcontext.arm_fp);
-		Log("ip: 0x%x, sp: 0x%x, lr: 0x%x, pc: 0x%x",
-			context->uc_mcontext.arm_ip,
-			context->uc_mcontext.arm_sp,
-			context->uc_mcontext.arm_lr,
-			context->uc_mcontext.arm_pc);
+#if defined(__arm__)
+		Log("r0: 0x%lX, r1: 0x%lX, r2: 0x%lX, r3: 0x%lX",
+			(unsigned long)context->uc_mcontext.arm_r0,
+			(unsigned long)context->uc_mcontext.arm_r1,
+			(unsigned long)context->uc_mcontext.arm_r2,
+			(unsigned long)context->uc_mcontext.arm_r3);
+		Log("r4: 0x%lx, r5: 0x%lx, r6: 0x%lx, r7: 0x%lx",
+			(unsigned long)context->uc_mcontext.arm_r4,
+			(unsigned long)context->uc_mcontext.arm_r5,
+			(unsigned long)context->uc_mcontext.arm_r6,
+			(unsigned long)context->uc_mcontext.arm_r7);
+		Log("r8: 0x%lx, r9: 0x%lx, sl: 0x%lx, fp: 0x%lx",
+			(unsigned long)context->uc_mcontext.arm_r8,
+			(unsigned long)context->uc_mcontext.arm_r9,
+			(unsigned long)context->uc_mcontext.arm_r10,
+			(unsigned long)context->uc_mcontext.arm_fp);
+		Log("ip: 0x%lx, sp: 0x%lx, lr: 0x%lx, pc: 0x%lx",
+			(unsigned long)context->uc_mcontext.arm_ip,
+			(unsigned long)context->uc_mcontext.arm_sp,
+			(unsigned long)context->uc_mcontext.arm_lr,
+			(unsigned long)context->uc_mcontext.arm_pc);
 
 		Log("backtrace:");
-		Log("1: libGTASA.so + 0x%X", context->uc_mcontext.arm_pc - g_libGTASA);
-		Log("2: libGTASA.so + 0x%X", context->uc_mcontext.arm_lr - g_libGTASA);
+		Log("1: libGTASA.so + 0x%lX", (unsigned long)(context->uc_mcontext.arm_pc - g_libGTASA));
+		Log("2: libGTASA.so + 0x%lX", (unsigned long)(context->uc_mcontext.arm_lr - g_libGTASA));
+#elif defined(__aarch64__)
+		for(int i = 0; i < 28; i += 4)
+		{
+			Log("x%d: 0x%llX, x%d: 0x%llX, x%d: 0x%llX, x%d: 0x%llX",
+				i, (unsigned long long)context->uc_mcontext.regs[i],
+				i + 1, (unsigned long long)context->uc_mcontext.regs[i + 1],
+				i + 2, (unsigned long long)context->uc_mcontext.regs[i + 2],
+				i + 3, (unsigned long long)context->uc_mcontext.regs[i + 3]);
+		}
+		Log("sp: 0x%llX, pc: 0x%llX",
+			(unsigned long long)context->uc_mcontext.sp,
+			(unsigned long long)context->uc_mcontext.pc);
+		Log("backtrace:");
+		Log("1: libGTASA.so + 0x%llX",
+			(unsigned long long)(context->uc_mcontext.pc - g_libGTASA));
+#else
+		Log("(register dump not implemented for this architecture)");
+#endif
 
 		exit(0);
 	}

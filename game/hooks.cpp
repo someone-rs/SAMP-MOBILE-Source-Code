@@ -338,6 +338,7 @@ extern "C" void pickup_ololo()
 	}
 }
 
+#if defined(__arm__)
 __attribute__((naked)) void PickupPickUp_hook()
 {
 	//LOGI("PickupPickUp_hook");
@@ -370,6 +371,10 @@ __attribute__((naked)) void PickupPickUp_hook()
 					"cmp r1, #6\n\t"
 					"pop {pc}\n\t");
 }
+#else
+// Non-ARM32 builds only: this Thumb-2 hook targets the 32-bit game.
+void PickupPickUp_hook() {}
+#endif
 
 extern "C" bool NotifyEnterVehicle(VEHICLE_TYPE *_pVehicle)
 {
@@ -406,6 +411,7 @@ extern "C" void call_taskEnterCarAsDriver(uintptr_t a, uint32_t b)
 {
 	CTaskComplexEnterCarAsDriver(a, b);
 }
+#if defined(__arm__)
 void __attribute__((naked)) CTaskComplexEnterCarAsDriver_hook(uint32_t thiz, uint32_t pVehicle)
 {
     __asm__ volatile("push {r0-r11, lr}\n\t"
@@ -424,19 +430,33 @@ void __attribute__((naked)) CTaskComplexEnterCarAsDriver_hook(uint32_t thiz, uin
     				"blx call_taskEnterCarAsDriver\n\t"
     				"pop {r0-r11, pc}");
 }
+#else
+// Non-ARM32 builds only: this Thumb-2 hook targets the 32-bit game.
+void CTaskComplexEnterCarAsDriver_hook(uint32_t thiz, uint32_t pVehicle)
+{
+	(void)thiz;
+	(void)pVehicle;
+}
+#endif
 
  void (*CTaskComplexLeaveCar)(uintptr_t** thiz, VEHICLE_TYPE *pVehicle, int iTargetDoor, int iDelayTime, bool bSensibleLeaveCar, bool bForceGetOut);
  void CTaskComplexLeaveCar_hook(uintptr_t** thiz, VEHICLE_TYPE *pVehicle, int iTargetDoor, int iDelayTime, bool bSensibleLeaveCar, bool bForceGetOut) 
  {
  	uintptr_t dwRetAddr = 0;
- 	__asm__ volatile ("mov %0, lr" : "=r" (dwRetAddr));
+ #if defined(__arm__)
+	__asm__ volatile ("mov %0, lr" : "=r" (dwRetAddr));
+#elif defined(__aarch64__)
+	__asm__ volatile ("mov %0, x30" : "=r" (dwRetAddr));
+#else
+	dwRetAddr = 0;
+#endif
  	dwRetAddr -= g_libGTASA;
  
  	if (dwRetAddr == 0x3AE905 || dwRetAddr == 0x3AE9CF) 
  	{
  		if (pNetGame) 
  		{
- 			if (GamePool_FindPlayerPed()->pVehicle == (uint32_t)pVehicle) 
+ 			if (GamePool_FindPlayerPed()->pVehicle == (uintptr_t)pVehicle) 
  			{
  				CVehiclePool *pVehiclePool=pNetGame->GetVehiclePool();
  				VEHICLEID VehicleID=pVehiclePool->FindIDFromGtaPtr((VEHICLE_TYPE *)GamePool_FindPlayerPed()->pVehicle);
@@ -448,7 +468,6 @@ void __attribute__((naked)) CTaskComplexEnterCarAsDriver_hook(uint32_t thiz, uin
  
  	(*CTaskComplexLeaveCar)(thiz, pVehicle, iTargetDoor, iDelayTime, bSensibleLeaveCar, bForceGetOut);
  }
-
 void InstallSpecialHooks()
 {
 	InstallMethodHook(g_libGTASA+0x5DDC60, (uintptr_t)Init_hook);
@@ -470,9 +489,13 @@ void InstallHooks()
 	SetUpHook(g_libGTASA+0x3DAF84, (uintptr_t)CRadar__SetCoordBlip_hook, (uintptr_t*)&CRadar__SetCoordBlip);
 	SetUpHook(g_libGTASA+0x3DE9A8, (uintptr_t)CRadar__DrawRadarGangOverlay_hook, (uintptr_t*)&CRadar__DrawRadarGangOverlay);
 
+#if defined(__arm__)
 	SetUpHook(g_libGTASA+0x482E60, (uintptr_t)CTaskComplexEnterCarAsDriver_hook, (uintptr_t*)&CTaskComplexEnterCarAsDriver);
+#endif
 	SetUpHook(g_libGTASA+0x4833CC, (uintptr_t)CTaskComplexLeaveCar_hook, (uintptr_t*)&CTaskComplexLeaveCar);
+#if defined(__arm__)
 	CodeInject(g_libGTASA+0x2D99F4, (uintptr_t)PickupPickUp_hook, 1);
+#endif
 
 	HookCPad();
 }

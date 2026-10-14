@@ -10,6 +10,7 @@
 #include "keyboard.h"
 #include "debug.h"
 #include "settings.h"
+#include "../serverbrowser.h"
 
 extern CChatWindow *pChatWindow;
 extern CSpawnScreen *pSpawnScreen;
@@ -17,6 +18,7 @@ extern CPlayerTags *pPlayerTags;
 extern CDialogWindow *pDialogWindow;
 extern CDebug *pDebug;
 extern CSettings *pSettings;
+extern CServerBrowser *pServerBrowser;
 extern CKeyBoard *pKeyBoard;
 extern CNetGame *pNetGame;
 
@@ -97,6 +99,10 @@ void CGUI::Render()
 	ImGui::NewFrame();
 
 	RenderVersion();
+
+	// Server browser overlay: visible until the client connects.
+	if(pServerBrowser && !pNetGame && pServerBrowser->IsOpen())
+		pServerBrowser->Render();
 	//RenderRakNetStatistics();
 	if(pPlayerTags) pPlayerTags->Render();
 	

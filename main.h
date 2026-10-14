@@ -23,5 +23,10 @@
 extern uintptr_t g_libGTASA;
 extern const char* g_pszStorage;
 
+class CServerBrowser;
+extern CServerBrowser* pServerBrowser;
+extern bool g_bConnectRequested;
+void ConnectToServer(const char* szHost, int iPort);
+
 void Log(const char *fmt, ...);
 uint32_t GetTickCount();

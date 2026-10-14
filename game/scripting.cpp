@@ -3,7 +3,7 @@
 
 GAME_SCRIPT_THREAD* gst;
 char ScriptBuf[0xFF];
-uintptr_t *pdwParamVars[18];
+uint32_t *pdwParamVars[18]; // 32-bit script VM: params are uint32_t
 
 uint8_t ExecuteScriptBuf()
 {

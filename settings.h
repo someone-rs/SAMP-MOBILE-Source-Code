@@ -9,6 +9,7 @@ struct stSettings
 	char szHost[MAX_SETTINGS_STRING+1];
 	int iPort;
 	char szPassword[MAX_SETTINGS_STRING+1];
+	bool bServerBrowser;
 
 	// debug
 	bool bDebug;

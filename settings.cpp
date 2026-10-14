@@ -28,6 +28,7 @@ CSettings::CSettings()
 	length = reader.Get("client", "password", "").copy(m_Settings.szPassword, MAX_SETTINGS_STRING);
 	m_Settings.szPassword[length] = '\0';
 	m_Settings.iPort = reader.GetInteger("client", "port", 7777);
+	m_Settings.bServerBrowser = reader.GetBoolean("client", "browser", true);
 	// Debug
 	m_Settings.bDebug = reader.GetBoolean("debug", "debug", true);
 	m_Settings.bOnline = reader.GetBoolean("debug", "online", false);
