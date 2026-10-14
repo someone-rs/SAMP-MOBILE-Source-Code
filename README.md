@@ -83,12 +83,14 @@ version, size and sentinel file.
 
 ### Native client init
 
-`GameActivity` loads the engine (`GTASA`, optional) then `samp`, writes
+`GameActivity` loads `samp`, then resolves the proprietary game engine
+(`libGTASA.so`): bundled copy first, then a previously extracted copy in the
+app's files dir, otherwise it asks you to pick your GTA:SA APK and extracts
+`lib/<abi>/libGTASA.so` from it automatically (one time only). Then it writes
 `SAMP/settings.ini` from the chosen server + nickname, and calls the native
 `initializeSAMP(storagePath)`. The native side then hooks the engine and
-shows the in-game server browser. If the proprietary engine library is not
-present, the app says so instead of showing a black screen — game assets
-and the engine are not part of this repository.
+shows the in-game server browser. Game assets and the engine are not part of
+this repository — the engine always comes from your own GTA:SA APK.
 
 ## Server browser
 
