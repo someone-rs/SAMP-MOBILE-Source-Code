@@ -46,8 +46,13 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub-hosted ubuntu runners already ship the Android SDK
+      # (cmdline-tools, platform-tools, build-tools, android-34 platform),
+      # so no SDK setup action is needed here.
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27
 
       - name: Build debug APK
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
