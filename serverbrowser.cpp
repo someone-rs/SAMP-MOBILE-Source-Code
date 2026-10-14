@@ -50,7 +50,7 @@ CServerBrowser::~CServerBrowser()
 void CServerBrowser::LoadFavorites()
 {
 	char path[256];
-	snprintf(path, sizeof(path), "%sSAMP/servers.ini", g_pszStorage);
+	snprintf(path, sizeof(path), "%sSAMP/servers.ini", g_szStorage);
 
 	INIReader reader(path);
 	if(reader.ParseError() < 0)
@@ -91,7 +91,7 @@ void CServerBrowser::LoadFavorites()
 void CServerBrowser::SaveFavorites()
 {
 	char path[256];
-	snprintf(path, sizeof(path), "%sSAMP/servers.ini", g_pszStorage);
+	snprintf(path, sizeof(path), "%sSAMP/servers.ini", g_szStorage);
 
 	FILE* f = fopen(path, "w");
 	if(!f)

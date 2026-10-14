@@ -67,7 +67,7 @@ CGUI::CGUI()
 
 	// load fonts
 	char path[0xFF];
-	sprintf(path, "%sSAMP/fonts/%s", g_pszStorage, pSettings->Get().szFont);
+	sprintf(path, "%sSAMP/fonts/%s", g_szStorage, pSettings->Get().szFont);
 	// cp1251 ranges
 	static const ImWchar ranges[] = 
 	{

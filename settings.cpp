@@ -7,7 +7,7 @@ CSettings::CSettings()
 	Log("Loading settings..");	
 
 	char buff[0x7F];
-	sprintf(buff, "%sSAMP/settings.ini", g_pszStorage);
+	sprintf(buff, "%sSAMP/settings.ini", g_szStorage);
 
 	INIReader reader(buff);
 

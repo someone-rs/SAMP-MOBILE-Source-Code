@@ -8,9 +8,16 @@ modernized for today's devices.
 
 ## What's new in this fork
 
+- **Full Gradle project** — `./gradlew assembleDebug` now builds a real APK:
+  Java launcher (server list, nickname, Play button), in-game game-data
+  downloader, and the C++ client compiled via ndk-build — mirroring the
+  SA-MP Mobile Launcher layout.
+- **In-game data download** — first launch downloads the complete game-data
+  package from the same source the launcher uses, with progress UI and
+  version-pinned completion (never asks twice).
 - **Multi-ABI builds** — `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`
-  (upstream was `armeabi-v7a` only). CI builds and uploads `libsamp.so`
-  for all four ABIs on every push.
+  (upstream was `armeabi-v7a` only). CI builds the native libraries and
+  the APK, uploading both as artifacts on every push.
 - **Modern NDK** — migrated off the long-removed `gnustl_static` to
   `c++_static` (libc++), `APP_PLATFORM` bumped to `android-21`
   (the minimum the 64-bit ABIs require).
@@ -26,10 +33,27 @@ modernized for today's devices.
 
 ## Building
 
-Requirements: Android NDK r25 or newer (r27 recommended).
+### Full APK (recommended)
+
+This is now a standard Android Gradle project — Java launcher + C++ client,
+same shape as the SA-MP Mobile Launcher:
 
 ```bash
-# all ABIs
+./gradlew assembleDebug
+# output: app/build/outputs/apk/debug/app-debug.apk
+```
+
+The native `libsamp.so` (all four ABIs) is built automatically through
+`app/src/main/jni/` (which delegates to the shared `Android.mk` /
+`Application.mk` at the repo root — single source of truth).
+
+Requirements: JDK 17, Android SDK (platform 34, build-tools 34), NDK r27.
+CI builds both the native libraries and the debug APK on every push.
+
+### Native library only
+
+```bash
+# all ABIs (needs ANDROID_NDK_HOME pointing at NDK r25+)
 ndk-build -j$(nproc)
 
 # a single ABI
@@ -38,8 +62,33 @@ ndk-build APP_ABI=arm64-v8a -j$(nproc)
 # output: libs/<abi>/libsamp.so
 ```
 
-Or just push — GitHub Actions builds all four ABIs and attaches the
-`.so` files as workflow artifacts.
+## App structure
+
+| Path | Contents |
+|---|---|
+| `app/src/main/java/com/sampmobile/fork/` | Launcher UI (server list, nickname), game bootstrap, data downloader |
+| `app/src/main/java/.../LauncherActivity.java` | Entry screen: favorites, add/edit/delete, Play |
+| `app/src/main/java/.../GameActivity.java` | Loads the client, writes `settings.ini`, starts the game |
+| `app/src/main/java/.../GameDataManager.java` | One-time game-data download (same source the SA-MP Mobile Launcher uses) |
+| `app/src/main/jni/` | Thin ndk-build bridge to the C++ sources |
+
+### Game data download
+
+On first launch `GameDataManager` fetches the update config, then downloads
+**one** complete data package (`files.zip`, hosted on MediaFire — the same
+data source as the SA-MP Mobile Launcher) with progress UI, verifies and
+extracts it, and never asks again (version-pinned via a marker file).
+No maintenance kill-switch: the config is only used for the data URL,
+version, size and sentinel file.
+
+### Native client init
+
+`GameActivity` loads the engine (`GTASA`, optional) then `samp`, writes
+`SAMP/settings.ini` from the chosen server + nickname, and calls the native
+`initializeSAMP(storagePath)`. The native side then hooks the engine and
+shows the in-game server browser. If the proprietary engine library is not
+present, the app says so instead of showing a black screen — game assets
+and the engine are not part of this repository.
 
 ## Server browser
 
@@ -68,6 +117,7 @@ automatically.
 
 | Path | Contents |
 |---|---|
+| `app/` | Android Gradle module (launcher UI, manifest, resources) |
 | `main.cpp` / `main.h` | JNI entry, init flow, connect logic |
 | `serverbrowser.*` | Server browser UI + SA-MP query client |
 | `settings.*` | `settings.ini` loader |

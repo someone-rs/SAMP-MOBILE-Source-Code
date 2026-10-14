@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <list>
@@ -21,7 +22,7 @@
 #include "util/util.h"
 
 extern uintptr_t g_libGTASA;
-extern const char* g_pszStorage;
+extern char g_szStorage[512]; // set from Java via initializeSAMP(); defaults to legacy path
 
 class CServerBrowser;
 extern CServerBrowser* pServerBrowser;

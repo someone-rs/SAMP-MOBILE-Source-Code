@@ -39,28 +39,28 @@ stFile* NvFOpen_hook(const char* r0, const char* r1, int r2, int r3)
 	// ----------------------------
 	if(!strncmp(r1+12, "mainV1.scm", 10))
 	{
-		sprintf(path, "%sSAMP/main.scm", g_pszStorage);
+		sprintf(path, "%sSAMP/main.scm", g_szStorage);
 		Log("Loading mainV1.scm..");
 		goto open;
 	}
 	// ----------------------------
 	if(!strncmp(r1+12, "SCRIPTV1.IMG", 12))
 	{
-		sprintf(path, "%sSAMP/script.img", g_pszStorage);
+		sprintf(path, "%sSAMP/script.img", g_szStorage);
 		Log("Loading script.img..");
 		goto open;
 	}
 	// ----------------------------
 	if(!strncmp(r1, "DATA/PEDS.IDE", 13))
 	{
-		sprintf(path, "%s/SAMP/peds.ide", g_pszStorage);
+		sprintf(path, "%s/SAMP/peds.ide", g_szStorage);
 		Log("Loading peds.ide..");
 		goto open;
 	}
 	// ----------------------------
 	if(!strncmp(r1, "DATA/VEHICLES.IDE", 17))
 	{
-		sprintf(path, "%s/SAMP/vehicles.ide", g_pszStorage);
+		sprintf(path, "%s/SAMP/vehicles.ide", g_szStorage);
 		Log("Loading vehicles.ide..");
 		goto open;
 	}

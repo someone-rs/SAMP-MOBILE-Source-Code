@@ -22,8 +22,9 @@
 #include "str_obfuscator_no_template.hpp"
 
 uintptr_t g_libGTASA = 0;
-// Изменено: теперь путь задается жестко на общую папку Documents
-const char* g_pszStorage = "/storage/emulated/0/Documents/";
+// Storage root for SAMP/ (settings.ini, servers.ini, logs). Overridable from
+// Java via initializeSAMP(); defaults to the legacy shared-Documents path.
+char g_szStorage[512] = "/storage/emulated/0/Documents/";
 
 const auto encryptedAddress = cryptor::create("", 0);
 unsigned short port = 0;
@@ -52,7 +53,7 @@ void MainLoop();
 void InitSAMP()
 {
 	Log("Initializing SAMP..");
-	Log("Storage forced to: %s", g_pszStorage);
+	Log("Storage forced to: %s", g_szStorage);
 
 	pSettings = new CSettings();
 
@@ -217,24 +218,11 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
 {
 	Log("SAMP library loaded! Build time: " __DATE__ " " __TIME__);
 
-	g_libGTASA = FindLibrary("libGTASA.so");
-	if(g_libGTASA == 0)
-	{
-		Log("ERROR: libGTASA.so address not found!");
-		return 0;
-	}
-
-	Log("libGTASA.so image base address: 0x%X", g_libGTASA);
-
 	srand(time(0));
 
-	InitHookStuff();
-	InitRenderWareFunctions();
-	InstallSpecialHooks();
-
-	pthread_t thread;
-	pthread_create(&thread, 0, Init, 0);
-
+	// Install the crash handler as early as possible. The actual client
+	// initialization happens in initializeSAMP(), called from Java
+	// (GameActivity) once the game data is ready.
 	struct sigaction act;
 	act.sa_sigaction = handler;
 	sigemptyset(&act.sa_mask);
@@ -244,14 +232,46 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
 	return JNI_VERSION_1_4;
 }
 
+// Called from com.sampmobile.fork.GameActivity after the game data has been
+// verified/downloaded. storagePath is the app's external files dir and must
+// end with '/'. Mirrors the launcher's explicit-init flow.
+extern "C" JNIEXPORT void JNICALL
+Java_com_sampmobile_fork_GameActivity_initializeSAMP(JNIEnv *env, jobject thiz, jstring jStoragePath)
+{
+	const char *p = env->GetStringUTFChars(jStoragePath, nullptr);
+	if(p)
+	{
+		strncpy(g_szStorage, p, sizeof(g_szStorage) - 1);
+		g_szStorage[sizeof(g_szStorage) - 1] = '\0';
+		env->ReleaseStringUTFChars(jStoragePath, p);
+	}
+	Log("SAMP storage path: %s", g_szStorage);
+
+	g_libGTASA = FindLibrary("libGTASA.so");
+	if(g_libGTASA == 0)
+	{
+		Log("ERROR: libGTASA.so address not found!");
+		return;
+	}
+
+	Log("libGTASA.so image base address: 0x%X", g_libGTASA);
+
+	InitHookStuff();
+	InitRenderWareFunctions();
+	InstallSpecialHooks();
+
+	pthread_t thread;
+	pthread_create(&thread, 0, Init, 0);
+}
+
 void Log(const char *fmt, ...)
 {	
 	char buffer[0xFF];
 	static FILE* flLog = nullptr;
 
-	if(flLog == nullptr && g_pszStorage != nullptr)
+	if(flLog == nullptr && g_szStorage != nullptr)
 	{
-		sprintf(buffer, "%sSAMP/samp_log.txt", g_pszStorage);
+		sprintf(buffer, "%sSAMP/samp_log.txt", g_szStorage);
 		flLog = fopen(buffer, "a");
 	}
 
